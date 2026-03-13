@@ -1,4 +1,5 @@
 use crate::channels::traits::{Channel, ChannelMessage, SendMessage};
+use crate::config::build_runtime_proxy_client;
 use async_trait::async_trait;
 use matrix_sdk::{
     authentication::matrix::MatrixSession,
@@ -162,7 +163,7 @@ impl MatrixChannel {
             zeroclaw_dir,
             resolved_room_id_cache: Arc::new(RwLock::new(None)),
             sdk_client: Arc::new(OnceCell::new()),
-            http_client: Client::new(),
+            http_client: build_runtime_proxy_client("channel.matrix"),
         }
     }
 
@@ -343,7 +344,9 @@ impl MatrixChannel {
                     }
                 };
 
-                let mut client_builder = MatrixSdkClient::builder().homeserver_url(&self.homeserver);
+                let mut client_builder = MatrixSdkClient::builder()
+                    .homeserver_url(&self.homeserver)
+                    .http_client(self.http_client.clone());
 
                 if let Some(store_dir) = self.matrix_store_dir() {
                     tokio::fs::create_dir_all(&store_dir).await.map_err(|error| {
