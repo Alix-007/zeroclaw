@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import {
   Clock,
   Plus,
@@ -8,13 +8,19 @@ import {
   XCircle,
   AlertCircle,
 } from 'lucide-react';
-import type { CronJob } from '@/types/api';
-import { getCronJobs, addCronJob, deleteCronJob } from '@/lib/api';
+import type { CronJob, CronRun } from '@/types/api';
+import { getCronJobs, addCronJob, deleteCronJob, getCronRuns } from '@/lib/api';
 
 function formatDate(iso: string | null): string {
   if (!iso) return '-';
   const d = new Date(iso);
   return d.toLocaleString();
+}
+
+function formatDuration(durationMs: number | null): string {
+  if (durationMs == null) return '-';
+  if (durationMs < 1000) return `${durationMs}ms`;
+  return `${(durationMs / 1000).toFixed(1)}s`;
 }
 
 export default function Cron() {
@@ -23,6 +29,10 @@ export default function Cron() {
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [runsByJob, setRunsByJob] = useState<Record<string, CronRun[]>>({});
+  const [runsLoading, setRunsLoading] = useState<Record<string, boolean>>({});
+  const [runsError, setRunsError] = useState<Record<string, string>>({});
 
   // Form state
   const [formName, setFormName] = useState('');
@@ -77,6 +87,38 @@ export default function Cron() {
     } finally {
       setConfirmDelete(null);
     }
+  };
+
+  const loadRuns = async (id: string, force = false) => {
+    if ((!force && runsByJob[id]) || runsLoading[id]) {
+      return;
+    }
+    setRunsLoading((prev) => ({ ...prev, [id]: true }));
+    setRunsError((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    try {
+      const runs = await getCronRuns(id, 10);
+      setRunsByJob((prev) => ({ ...prev, [id]: runs }));
+    } catch (err: unknown) {
+      setRunsError((prev) => ({
+        ...prev,
+        [id]: err instanceof Error ? err.message : 'Failed to load run history',
+      }));
+    } finally {
+      setRunsLoading((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const toggleHistory = async (id: string) => {
+    if (expandedJobId === id) {
+      setExpandedJobId(null);
+      return;
+    }
+    setExpandedJobId(id);
+    await loadRuns(id);
   };
 
   const statusIcon = (status: string | null) => {
@@ -250,68 +292,131 @@ export default function Cron() {
             </thead>
             <tbody>
               {jobs.map((job) => (
-                <tr
-                  key={job.id}
-                  className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
-                >
-                  <td className="px-4 py-3 text-gray-400 font-mono text-xs">
-                    {job.id.slice(0, 8)}
-                  </td>
-                  <td className="px-4 py-3 text-white font-medium">
-                    {job.name ?? '-'}
-                  </td>
-                  <td className="px-4 py-3 text-gray-300 font-mono text-xs max-w-[200px] truncate">
-                    {job.command}
-                  </td>
-                  <td className="px-4 py-3 text-gray-400 text-xs">
-                    {formatDate(job.next_run)}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-1.5">
-                      {statusIcon(job.last_status)}
-                      <span className="text-gray-300 text-xs capitalize">
-                        {job.last_status ?? '-'}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                        job.enabled
-                          ? 'bg-green-900/40 text-green-400 border border-green-700/50'
-                          : 'bg-gray-800 text-gray-500 border border-gray-700'
-                      }`}
-                    >
-                      {job.enabled ? 'Enabled' : 'Disabled'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {confirmDelete === job.id ? (
-                      <div className="flex items-center justify-end gap-2">
-                        <span className="text-xs text-red-400">Delete?</span>
-                        <button
-                          onClick={() => handleDelete(job.id)}
-                          className="text-red-400 hover:text-red-300 text-xs font-medium"
-                        >
-                          Yes
-                        </button>
-                        <button
-                          onClick={() => setConfirmDelete(null)}
-                          className="text-gray-400 hover:text-white text-xs font-medium"
-                        >
-                          No
-                        </button>
+                <Fragment key={job.id}>
+                  <tr
+                    className="border-b border-gray-800/50 hover:bg-gray-800/30 transition-colors"
+                  >
+                    <td className="px-4 py-3 text-gray-400 font-mono text-xs">
+                      {job.id.slice(0, 8)}
+                    </td>
+                    <td className="px-4 py-3 text-white font-medium">
+                      {job.name ?? '-'}
+                    </td>
+                    <td className="px-4 py-3 text-gray-300 font-mono text-xs max-w-[200px] truncate">
+                      {job.command}
+                    </td>
+                    <td className="px-4 py-3 text-gray-400 text-xs">
+                      {formatDate(job.next_run)}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        {statusIcon(job.last_status)}
+                        <span className="text-gray-300 text-xs capitalize">
+                          {job.last_status ?? '-'}
+                        </span>
                       </div>
-                    ) : (
-                      <button
-                        onClick={() => setConfirmDelete(job.id)}
-                        className="text-gray-400 hover:text-red-400 transition-colors"
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          job.enabled
+                            ? 'bg-green-900/40 text-green-400 border border-green-700/50'
+                            : 'bg-gray-800 text-gray-500 border border-gray-700'
+                        }`}
                       >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
+                        {job.enabled ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          onClick={() => toggleHistory(job.id)}
+                          className="text-xs font-medium text-blue-400 hover:text-blue-300"
+                        >
+                          {expandedJobId === job.id ? 'Hide history' : 'History'}
+                        </button>
+                        {confirmDelete === job.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs text-red-400">Delete?</span>
+                            <button
+                              onClick={() => handleDelete(job.id)}
+                              className="text-red-400 hover:text-red-300 text-xs font-medium"
+                            >
+                              Yes
+                            </button>
+                            <button
+                              onClick={() => setConfirmDelete(null)}
+                              className="text-gray-400 hover:text-white text-xs font-medium"
+                            >
+                              No
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setConfirmDelete(job.id)}
+                            className="text-gray-400 hover:text-red-400 transition-colors"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  {expandedJobId === job.id && (
+                    <tr className="border-b border-gray-800/50 bg-gray-950/60">
+                      <td colSpan={7} className="px-4 py-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-white">
+                              Recent runs
+                            </p>
+                            <button
+                              onClick={() => void loadRuns(job.id, true)}
+                              className="text-xs text-gray-400 hover:text-white"
+                            >
+                              Refresh
+                            </button>
+                          </div>
+                          {runsLoading[job.id] && (
+                            <p className="text-sm text-gray-400">Loading run history...</p>
+                          )}
+                          {runsError[job.id] && (
+                            <p className="text-sm text-red-400">{runsError[job.id]}</p>
+                          )}
+                          {!runsLoading[job.id] &&
+                            !runsError[job.id] &&
+                            (runsByJob[job.id]?.length ? (
+                              <div className="space-y-2">
+                                {runsByJob[job.id].map((run) => (
+                                  <div
+                                    key={run.id}
+                                    className="rounded-lg border border-gray-800 bg-gray-900/80 p-3"
+                                  >
+                                    <div className="flex flex-wrap items-center gap-3 text-xs">
+                                      <span className="text-gray-500">
+                                        {formatDate(run.started_at)}
+                                      </span>
+                                      <span className="capitalize text-gray-300">
+                                        {run.status}
+                                      </span>
+                                      <span className="text-gray-500">
+                                        duration {formatDuration(run.duration_ms)}
+                                      </span>
+                                    </div>
+                                    <pre className="mt-2 whitespace-pre-wrap break-words text-xs text-gray-300">
+                                      {run.output ?? '(no output)'}
+                                    </pre>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm text-gray-400">No runs recorded yet.</p>
+                            ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

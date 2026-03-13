@@ -2,6 +2,7 @@ import type {
   StatusResponse,
   ToolSpec,
   CronJob,
+  CronRun,
   Integration,
   DiagResult,
   MemoryEntry,
@@ -172,6 +173,14 @@ export function deleteCronJob(id: string): Promise<void> {
   return apiFetch<void>(`/api/cron/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+}
+
+export function getCronRuns(id: string, limit = 10): Promise<CronRun[]> {
+  const params = new URLSearchParams();
+  params.set('limit', String(limit));
+  return apiFetch<CronRun[] | { runs: CronRun[] }>(
+    `/api/cron/${encodeURIComponent(id)}/runs?${params.toString()}`,
+  ).then((data) => unwrapField(data, 'runs'));
 }
 
 // ---------------------------------------------------------------------------
