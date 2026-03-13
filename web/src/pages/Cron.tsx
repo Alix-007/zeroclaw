@@ -385,9 +385,9 @@ export default function Cron() {
                           )}
                           {!runsLoading[job.id] &&
                             !runsError[job.id] &&
-                            (runsByJob[job.id]?.length ? (
+                            ((runsByJob[job.id]?.length ?? 0) > 0 ? (
                               <div className="space-y-2">
-                                {runsByJob[job.id].map((run) => (
+                                {runsByJob[job.id]!.map((run) => (
                                   <div
                                     key={run.id}
                                     className="rounded-lg border border-gray-800 bg-gray-900/80 p-3"
