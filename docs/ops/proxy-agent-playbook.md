@@ -110,10 +110,19 @@ Expected behavior:
 
 Use when only part of the system should use proxy (for example specific providers/tools/channels).
 
+Common channel keys include `channel.telegram`, `channel.matrix`, `channel.slack`, and `channel.discord`.
+
 ### 5.1 Target specific services
 
 ```json
 {"action":"set","enabled":true,"scope":"services","services":["provider.openai","tool.http_request","channel.telegram"],"all_proxy":"socks5h://127.0.0.1:1080","no_proxy":["localhost","127.0.0.1",".internal"]}
+{"action":"get"}
+```
+
+### 5.1b Route only selected channels through proxy
+
+```json
+{"action":"set","enabled":true,"scope":"services","services":["channel.matrix","channel.telegram"],"all_proxy":"socks5h://127.0.0.1:1080"}
 {"action":"get"}
 ```
 
