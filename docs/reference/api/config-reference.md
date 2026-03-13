@@ -30,7 +30,7 @@ Schema export command:
 
 | Key | Default | Purpose |
 |---|---|---|
-| `backend` | `none` | Observability backend: `none`, `noop`, `log`, `prometheus`, `otel`, `opentelemetry`, or `otlp` |
+| `backend` | `none` | Observability backend: `none`, `noop`, `log`, `verbose`, `prometheus`, `otel`, `opentelemetry`, or `otlp` |
 | `otel_endpoint` | `http://localhost:4318` | OTLP HTTP endpoint used when backend is `otel` |
 | `otel_service_name` | `zeroclaw` | Service name emitted to OTLP collector |
 | `runtime_trace_mode` | `none` | Runtime trace storage mode: `none`, `rolling`, or `full` |
@@ -41,6 +41,7 @@ Notes:
 
 - `backend = "otel"` uses OTLP HTTP export with a blocking exporter client so spans and metrics can be emitted safely from non-Tokio contexts.
 - Alias values `opentelemetry` and `otlp` map to the same OTel backend.
+- `backend = "verbose"` prints concise LLM/tool progress lines for interactive sessions without dumping prompt contents.
 - Runtime traces are intended for debugging tool-call failures and malformed model tool payloads. They can contain model output text, so keep this disabled by default on shared hosts.
 - Query runtime traces with:
   - `zeroclaw doctor traces --limit 20`
