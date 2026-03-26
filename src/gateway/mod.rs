@@ -377,7 +377,7 @@ pub async fn run_gateway(host: &str, port: u16, config: Config) -> Result<()> {
     if is_public_bind(host) && config.tunnel.provider == "none" && !config.gateway.allow_public_bind
     {
         anyhow::bail!(
-            "🛑 Refusing to bind to {host} — gateway would be exposed to the internet.\n\
+            "🛑 Refusing to bind to {host} — gateway would be exposed on non-local interfaces.\n\
              Fix: use --host 127.0.0.1 (default), configure a tunnel, or set\n\
              [gateway] allow_public_bind = true in config.toml (NOT recommended).\n\n\
              Docker: if you need to reach the gateway from a Docker container, set\n\
@@ -2213,6 +2213,16 @@ mod tests {
         // When env var is not set, should return the default constant
         std::env::remove_var("ZEROCLAW_GATEWAY_TIMEOUT_SECS");
         assert_eq!(gateway_request_timeout_secs(), 30);
+    }
+
+    #[tokio::test]
+    async fn public_bind_error_uses_non_local_interfaces_wording() {
+        let err = run_gateway("0.0.0.0", 42617, Config::default())
+            .await
+            .expect_err("public bind without allow_public_bind should fail early");
+        let text = format!("{err:#}");
+        assert!(text.contains("exposed on non-local interfaces"));
+        assert!(!text.contains("exposed to the internet"));
     }
 
     #[test]
