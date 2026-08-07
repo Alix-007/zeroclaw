@@ -438,6 +438,40 @@ mod tests {
     }
 
     #[test]
+    fn legacy_graph_json_defaults_node_kind_and_layout_geometry() {
+        let graph: SopGraph = serde_json::from_value(serde_json::json!({
+            "nodes": [{
+                "step": 1,
+                "title": "publish",
+                "inputs": [],
+                "outputs": []
+            }],
+            "layout": {
+                "positions": [],
+                "columns": 2,
+                "rows": 1
+            }
+        }))
+        .unwrap();
+
+        assert_eq!(graph.nodes[0].kind, NodeKind::Step);
+        assert_eq!(graph.layout.columns, 2);
+        assert_eq!(graph.layout.rows, 1);
+        assert_eq!(graph.layout.geometry, LayoutGeometry::CANONICAL);
+
+        let graph_without_layout: SopGraph = serde_json::from_value(serde_json::json!({
+            "nodes": [{
+                "step": 2,
+                "title": "notify",
+                "inputs": [],
+                "outputs": []
+            }]
+        }))
+        .unwrap();
+        assert_eq!(graph_without_layout.layout, GraphLayout::default());
+    }
+
+    #[test]
     fn flow_role_serializes_all_variants_snake_case() {
         for (role, wire) in [
             (FlowRole::Sequence, "sequence"),
