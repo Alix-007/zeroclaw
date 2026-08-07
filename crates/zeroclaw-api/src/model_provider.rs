@@ -933,3 +933,39 @@ mod turn_order_tests {
         assert!(msgs.is_empty());
     }
 }
+
+#[cfg(test)]
+mod pruning_marker_tests {
+    use super::ChatMessage;
+
+    #[test]
+    fn skips_internal_pruning_summary_and_its_immediate_separator() {
+        let messages = vec![
+            ChatMessage::assistant(ChatMessage::pruned_tool_exchange_summary(2)),
+            ChatMessage::pruned_context_separator(),
+            ChatMessage::user("continue from the compacted history"),
+        ];
+
+        assert!(ChatMessage::should_skip_internal_pruning_marker(&messages, 0));
+        assert!(ChatMessage::should_skip_internal_pruning_marker(&messages, 1));
+        assert!(!ChatMessage::should_skip_internal_pruning_marker(&messages, 2));
+    }
+
+    #[test]
+    fn retains_unpaired_or_malformed_pruning_like_messages() {
+        let messages = vec![
+            ChatMessage::assistant("normal assistant message"),
+            ChatMessage::pruned_context_separator(),
+            ChatMessage::user(ChatMessage::pruned_tool_exchange_summary(1)),
+            ChatMessage::assistant("[Tool exchange: incomplete summary"),
+        ];
+
+        for index in 0..messages.len() {
+            assert!(!ChatMessage::should_skip_internal_pruning_marker(&messages, index));
+        }
+        assert!(!ChatMessage::should_skip_internal_pruning_marker(
+            &messages,
+            messages.len()
+        ));
+    }
+}
