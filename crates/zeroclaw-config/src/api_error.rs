@@ -226,6 +226,22 @@ mod tests {
     }
 
     #[test]
+    fn validation_codes_have_stable_wire_names_and_bad_request_status() {
+        for (code, expected) in [
+            (ConfigApiCode::RequiredFieldEmpty, "required_field_empty"),
+            (ConfigApiCode::InvalidNumericRange, "invalid_numeric_range"),
+            (ConfigApiCode::InvalidFormat, "invalid_format"),
+            (ConfigApiCode::InvalidEnumVariant, "invalid_enum_variant"),
+            (ConfigApiCode::DanglingReference, "dangling_reference"),
+        ] {
+            let serialized = serde_json::to_value(code).unwrap();
+            assert_eq!(serialized.as_str(), Some(expected));
+            assert_eq!(code.as_str(), expected);
+            assert_eq!(code.http_status(), 400);
+        }
+    }
+
+    #[test]
     fn http_status_matches_intent() {
         assert_eq!(ConfigApiCode::PathNotFound.http_status(), 404);
         assert_eq!(ConfigApiCode::ValidationFailed.http_status(), 400);
