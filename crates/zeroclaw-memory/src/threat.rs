@@ -93,7 +93,7 @@ static PATTERNS: LazyLock<Vec<Pattern>> = LazyLock::new(|| {
         },
         Pattern {
             regex: Regex::new(
-                r#"(?i)https?://(?:[^\s'"/:@]+(?::[^\s'"/@]*)?@|[^\s'"]*[?&](?:api[_-]?key|secret|token|password|credential)\s*=\s*[^\s'"]+)"#,
+                r#"(?i)https?://(?:[^\s'"/:@]+(?::[^\s'"/@]*)?@|[^\s'"]*[?&#](?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|secret|token|password|credential)\s*=\s*[^\s'"]+)"#,
             )
                 .expect("valid credential-in-url regex"),
             kind: ThreatKind::SendToUrl,
@@ -190,6 +190,39 @@ mod tests {
         );
         assert_eq!(findings.len(), 1);
         assert_eq!(findings[0].kind, ThreatKind::SendToUrl);
+    }
+
+    #[test]
+    fn url_with_compound_credential_parameters_is_flagged() {
+        for content in [
+            "https://example.invalid/?access_token=placeholder-value",
+            "https://example.invalid/?refresh_token=placeholder-value",
+            "https://example.invalid/?client_secret=placeholder-value",
+        ] {
+            let findings = scan(content, Scope::On);
+            assert!(
+                findings
+                    .iter()
+                    .any(|finding| finding.kind == ThreatKind::SendToUrl),
+                "expected credential URL finding for {content}"
+            );
+        }
+    }
+
+    #[test]
+    fn url_with_fragment_credential_is_flagged() {
+        for content in [
+            "https://example.invalid/#token=placeholder-value",
+            "https://example.invalid/#access_token=placeholder-value",
+        ] {
+            let findings = scan(content, Scope::On);
+            assert!(
+                findings
+                    .iter()
+                    .any(|finding| finding.kind == ThreatKind::SendToUrl),
+                "expected credential URL finding for {content}"
+            );
+        }
     }
 
     #[test]
