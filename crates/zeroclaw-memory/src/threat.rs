@@ -93,7 +93,7 @@ static PATTERNS: LazyLock<Vec<Pattern>> = LazyLock::new(|| {
         },
         Pattern {
             regex: Regex::new(
-                r#"(?i)https?://(?:[^\s'"/:@]+(?::[^\s'"/@]*)?@|[^\s'"]*[?&#](?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|secret|token|password|credential)\s*=\s*[^\s'"]+)"#,
+                r#"(?i)https?://(?:[^\s'"/:@]+(?::[^\s'"/@]*)?@|[^\s'"]*[?&#](?:api[_-]?key|(?:[a-z0-9]+[_-])*(?:key|token|secret|password|credential))\s*=\s*[^\s'"]+)"#,
             )
                 .expect("valid credential-in-url regex"),
             kind: ThreatKind::SendToUrl,
@@ -214,6 +214,23 @@ mod tests {
         for content in [
             "https://example.invalid/#token=placeholder-value",
             "https://example.invalid/#access_token=placeholder-value",
+        ] {
+            let findings = scan(content, Scope::On);
+            assert!(
+                findings
+                    .iter()
+                    .any(|finding| finding.kind == ThreatKind::SendToUrl),
+                "expected credential URL finding for {content}"
+            );
+        }
+    }
+
+    #[test]
+    fn url_with_prefixed_credential_parameters_is_flagged() {
+        for content in [
+            "https://example.invalid/?private_token=placeholder-value",
+            "https://example.invalid/?auth_token=placeholder-value",
+            "https://example.invalid/#session_token=placeholder-value",
         ] {
             let findings = scan(content, Scope::On);
             assert!(
