@@ -402,8 +402,10 @@ mod tests {
             POLICY.minimum_gh_minor
         )));
         assert!(fetch.contains("COMPARE_STATUS=0"));
+        assert!(fetch.contains(") || COMPARE_STATUS=$?"));
         assert!(fetch.contains("printf 'compare_status=%s\\n' \"$COMPARE_STATUS\""));
         assert!(fetch.contains("CHECKS_STATUS=0"));
+        assert!(fetch.contains(") || CHECKS_STATUS=$?"));
         assert!(fetch.contains("printf 'checks_status=%s\\n' \"$CHECKS_STATUS\""));
     }
 
