@@ -141,7 +141,6 @@ assert_equal "large highlights fallback" "$(printf 'First.\n\nSecond.')" "$actua
   cat "$work/many-highlights.md"
 } > "$work/brief-many-highlights.md"
 actual="$(bash "$composer" --notes "$work/brief-many-highlights.md" --highlights 2)"
-grep -Fxq 'Brief.' <<<"$actual" || fail "brief retained with a large highlights section"
-grep -Fq 'Extra release note' <<<"$actual" && fail "large highlights limited to requested bullets"
+assert_equal "large highlights explicit selection" "$(printf 'Brief.\n\n• First.\n• Second.')" "$actual"
 
 echo "release_post_text.test.sh: all checks passed"
